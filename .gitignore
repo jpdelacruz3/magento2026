@@ -1,0 +1,105 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# Magento 2 — generated & runtime
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Composer dependencies — restored via `composer install`
+src/vendor/
+
+# Magento code generation (DI proxies, interceptors, factories)
+src/generated/
+
+# Runtime cache, logs, sessions, tmp — exclude everything except the .htaccess
+src/var/*
+!src/var/.htaccess
+
+# Deployed static assets — regenerated via setup:static-content:deploy
+src/pub/static/*
+!src/pub/static/.htaccess
+
+# User-uploaded media — environment-specific, never commit binaries
+src/pub/media/*
+!src/pub/media/.htaccess
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Magento — environment config (contains credentials & host-specific values)
+# ══════════════════════════════════════════════════════════════════════════════
+
+# DB host, credentials, encryption key, cache backend — never commit
+src/app/etc/env.php
+
+# Composer auth (repo.magento.com keys, GitHub tokens)
+src/auth.json
+src/app/etc/auth.json
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Docker & local environment
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Active env file with real credentials — use .env.example as the template
+.env
+.env.local
+.env.*.local
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Node / frontend tooling
+# ══════════════════════════════════════════════════════════════════════════════
+
+node_modules/
+src/node_modules/
+npm-debug.log*
+yarn-error.log
+.npm/
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PHP tooling
+# ══════════════════════════════════════════════════════════════════════════════
+
+.phpunit.result.cache
+.php-cs-fixer.cache
+.php_cs.cache
+
+# ══════════════════════════════════════════════════════════════════════════════
+# macOS
+# ══════════════════════════════════════════════════════════════════════════════
+
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# ══════════════════════════════════════════════════════════════════════════════
+# IDEs & editors
+# ══════════════════════════════════════════════════════════════════════════════
+
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+.history/
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Windows
+# ══════════════════════════════════════════════════════════════════════════════
+
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Explicitly TRACKED — do not add rules that would ignore these
+# ══════════════════════════════════════════════════════════════════════════════
+#
+#  docker-compose.yml
+#  .env.example
+#  docker/nginx/default.conf
+#  docker/php-fpm/Dockerfile
+#  docker/php-fpm/php.ini
+#  docker/php-fpm/www.conf
+#  src/composer.json
+#  src/composer.lock
+#  src/app/etc/config.php       ← module enable/disable list
+#  src/app/code/**              ← custom modules
+#  src/app/design/**            ← custom themes

@@ -1,0 +1,162 @@
+services:
+
+  # ─────────────────────────────────────────────
+  # 1. Nginx (alpine) — reverse proxy / static files
+  # ─────────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: magento_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    extra_hosts:
+      - "magentoclaude.local:host-gateway"
+    volumes:
+      - ./src:/var/www/html:ro
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      php-fpm:
+        condition: service_healthy
+    networks:
+      - magento_net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ─────────────────────────────────────────────
+  # 2. PHP-FPM — Magento application runtime
+  # ─────────────────────────────────────────────
+  php-fpm:
+    build:
+      context: ./docker/php-fpm
+      dockerfile: Dockerfile
+      args:
+        PHP_VERSION: "8.3"
+    image: magento_php_fpm:8.3
+    container_name: magento_php_fpm
+    restart: unless-stopped
+    volumes:
+      - ./src:/var/www/html
+      - ./docker/php-fpm/php.ini:/usr/local/etc/php/conf.d/99-magento.ini:ro
+      - ./docker/php-fpm/www.conf:/usr/local/etc/php-fpm.d/www.conf:ro
+    extra_hosts:
+      - "magentoclaude.local:host-gateway"
+    environment:
+      MAGENTO_BASE_URL: ${MAGENTO_BASE_URL:-http://magentoclaude.local/}
+      MAGENTO_DB_HOST: ${MAGENTO_DB_HOST:-db}
+      MAGENTO_DB_PORT: ${MAGENTO_DB_PORT:-3306}
+      MAGENTO_DB_NAME: ${MYSQL_DATABASE:-magento}
+      MAGENTO_DB_USER: ${MYSQL_USER:-magento}
+      MAGENTO_DB_PASSWORD: ${MYSQL_PASSWORD:-magento_secret}
+      MAGENTO_ES_HOST: ${MAGENTO_ES_HOST:-elasticsearch}
+      MAGENTO_ES_PORT: ${MAGENTO_ES_PORT:-9200}
+      PHP_MEMORY_LIMIT: "2G"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - magento_net
+    healthcheck:
+      test: ["CMD", "php-fpm", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ─────────────────────────────────────────────
+  # 3. MySQL 8.0
+  # ─────────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: magento_mysql
+    restart: unless-stopped
+    command:
+      - --default-authentication-plugin=mysql_native_password
+      - --innodb-buffer-pool-size=512M
+      - --innodb-log-file-size=128M
+      - --max-allowed-packet=64M
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --log-bin-trust-function-creators=1
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_secret}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-magento}
+      MYSQL_USER: ${MYSQL_USER:-magento}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-magento_secret}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      magento_net:
+        aliases:
+          - db
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root_secret}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ─────────────────────────────────────────────
+  # 4. Elasticsearch 7.17
+  # ─────────────────────────────────────────────
+  elasticsearch:
+    image: elasticsearch:7.17.18
+    container_name: magento_elasticsearch
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+      bootstrap.memory_lock: "true"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - magento_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health | grep -qE '\"status\":\"(green|yellow)\"'"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# ─────────────────────────────────────────────
+# Named Volumes
+# ─────────────────────────────────────────────
+volumes:
+  mysql_data:
+    driver: local
+  elasticsearch_data:
+    driver: local
+
+# ─────────────────────────────────────────────
+# Network
+# ─────────────────────────────────────────────
+networks:
+  magento_net:
+    driver: bridge
