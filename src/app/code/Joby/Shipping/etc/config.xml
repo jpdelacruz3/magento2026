@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Store:etc/config.xsd">
+    <default>
+        <carriers>
+            <joby_shipping>
+                <active>1</active>
+                <title>Joby Shipping</title>
+                <name>Flat Rate</name>
+                <price>10.00</price>
+                <sort_order>10</sort_order>
+                <sallowspecific>0</sallowspecific>
+                <model>Joby\Shipping\Model\Carrier\JobyShipping</model>
+                <error_message>This shipping method is currently unavailable.</error_message>
+            </joby_shipping>
+        </carriers>
+    </default>
+</config>

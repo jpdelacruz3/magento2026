@@ -1,0 +1,37 @@
+ARG PHP_VERSION=8.3
+FROM php:${PHP_VERSION}-fpm
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libicu-dev libxml2-dev libxslt-dev libzip-dev libpng-dev libjpeg-dev \
+    libfreetype6-dev libwebp-dev libonig-dev libsodium-dev \
+    libssl-dev libcurl4-openssl-dev zlib1g-dev git unzip \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp
+
+RUN docker-php-ext-install -j"$(nproc)" \
+    bcmath ftp gd intl mbstring opcache pdo_mysql soap sodium \
+    sockets xsl zip pcntl xml simplexml
+
+RUN pecl install redis && docker-php-ext-enable redis
+
+COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
+
+WORKDIR /var/www/html
+
+COPY src/ .
+
+RUN composer install --no-dev --optimize-autoloader --no-interaction
+
+COPY docker/php-fpm/php.ini /usr/local/etc/php/conf.d/99-magento.ini
+COPY docker/php-fpm/www.conf /usr/local/etc/php-fpm.d/www.conf
+COPY docker/php-fpm/entrypoint.sh /entrypoint.sh
+
+RUN chmod +x /entrypoint.sh && chown -R www-data:www-data /var/www/html
+
+USER www-data
+
+EXPOSE 9000
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["php-fpm"]

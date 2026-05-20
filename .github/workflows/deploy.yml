@@ -1,0 +1,86 @@
+name: Deploy to AWS ECS
+
+on:
+  push:
+    branches: [main]
+
+env:
+  AWS_REGION:    ap-southeast-1
+  ECR_PHPFPM:    251917523920.dkr.ecr.ap-southeast-1.amazonaws.com/magento-phpfpm
+  ECR_NGINX:     251917523920.dkr.ecr.ap-southeast-1.amazonaws.com/magento-nginx
+  ECS_CLUSTER:   magento-cluster
+  ECS_SERVICE:   magento
+  TASK_FAMILY:   magento
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image tag
+        run: echo "IMAGE_TAG=${GITHUB_SHA::8}" >> $GITHUB_ENV
+
+      - name: Build and push php-fpm image
+        run: |
+          docker build \
+            -f docker/php-fpm/Dockerfile.prod \
+            -t $ECR_PHPFPM:$IMAGE_TAG \
+            -t $ECR_PHPFPM:latest \
+            .
+          docker push $ECR_PHPFPM:$IMAGE_TAG
+          docker push $ECR_PHPFPM:latest
+
+      - name: Build and push nginx image
+        run: |
+          docker build \
+            -f docker/nginx/Dockerfile \
+            -t $ECR_NGINX:$IMAGE_TAG \
+            -t $ECR_NGINX:latest \
+            .
+          docker push $ECR_NGINX:$IMAGE_TAG
+          docker push $ECR_NGINX:latest
+
+      - name: Update ECS task definition and deploy
+        run: |
+          TASK_DEF=$(aws ecs describe-task-definition \
+            --task-definition $TASK_FAMILY \
+            --query taskDefinition \
+            --output json)
+
+          NEW_TASK_DEF=$(echo "$TASK_DEF" | jq \
+            --arg phpfpm "$ECR_PHPFPM:$IMAGE_TAG" \
+            --arg nginx  "$ECR_NGINX:$IMAGE_TAG" \
+            'del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy) |
+             .containerDefinitions |= map(
+               if .name == "phpfpm" then .image = $phpfpm
+               elif .name == "nginx" then .image = $nginx
+               else . end
+             )')
+
+          NEW_ARN=$(aws ecs register-task-definition \
+            --cli-input-json "$NEW_TASK_DEF" \
+            --query taskDefinition.taskDefinitionArn \
+            --output text)
+
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service  $ECS_SERVICE \
+            --task-definition "$NEW_ARN" \
+            --force-new-deployment
+
+          aws ecs wait services-stable \
+            --cluster $ECS_CLUSTER \
+            --services $ECS_SERVICE

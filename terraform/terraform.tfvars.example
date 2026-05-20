@@ -1,0 +1,8 @@
+aws_region     = "ap-southeast-1"
+aws_account_id = "251917523920"
+
+# Strong password for the RDS magento user
+db_password = "YourStrongPassword123!"
+
+# Copy this from your local src/app/etc/env.php under crypt -> key
+magento_crypt_key = "your-magento-crypt-key-here"
