@@ -23,14 +23,6 @@ COPY src/ .
 
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-# Generate dummy env.php so setup:di:compile can bootstrap without a real DB
-RUN php -r "file_put_contents('app/etc/env.php', '<?php return [\'backend\'=>[\'frontName\'=>\'admin\'],\'crypt\'=>[\'key\'=>\'build\'],\'db\'=>[\'connection\'=>[\'default\'=>[\'host\'=>\'127.0.0.1\',\'dbname\'=>\'magento\',\'username\'=>\'root\',\'password\'=>\'\']]],\'resource\'=>[\'default_setup\'=>[\'connection\'=>\'default\']],\'MAGE_MODE\'=>\'developer\',\'install\'=>[\'date\'=>\'build\']];');"
-
-RUN php bin/magento setup:di:compile --no-interaction
-
-# Remove dummy env.php — entrypoint.sh generates the real one at container startup
-RUN rm -f app/etc/env.php
-
 COPY docker/php-fpm/php.ini /usr/local/etc/php/conf.d/99-magento.ini
 COPY docker/php-fpm/www.conf /usr/local/etc/php-fpm.d/www.conf
 COPY docker/php-fpm/entrypoint.sh /entrypoint.sh

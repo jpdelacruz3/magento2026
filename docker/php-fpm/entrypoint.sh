@@ -46,4 +46,11 @@ file_put_contents(
 echo '[entrypoint] env.php written' . PHP_EOL;
 "
 
+# Run DI compile on first boot if generated code is missing
+if [ ! -f "/var/www/html/generated/code/Magento/Framework/App/ResourceConnection/Proxy.php" ]; then
+    echo "[entrypoint] Running setup:di:compile..."
+    php /var/www/html/bin/magento setup:di:compile --no-interaction
+    echo "[entrypoint] setup:di:compile done"
+fi
+
 exec "$@"
